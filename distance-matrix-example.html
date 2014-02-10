@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Distance Matrix service</title>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=visualization"></script>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      #map-canvas {
+        height: 100%;
+        width: 50%;
+      }
+      #content-pane {
+        float:right;
+        width:48%;
+        padding-left: 2%;
+      }
+      #outputDiv {
+        font-size: 11px;
+      }
+    </style>
+    <script>
+var map;
+var geocoder;
+var bounds = new google.maps.LatLngBounds();
+var markersArray = [];
+
+var destinationIcon = 'https://chart.googleapis.com/chart?chst=d_map_pin_letter&chld=D|FF0000|000000';
+var originIcon = 'https://chart.googleapis.com/chart?chst=d_map_pin_letter&chld=O|FFFF00|000000';
+
+
+var startLat = 41.883225;
+var startLng = -87.631275;
+
+var origin = new google.maps.LatLng(startLat, startLng)
+
+var destinations = [];
+
+var latRange = 0.018;
+var lngRange = 0.029;
+var borderPadding = 0.005;
+
+for(var i = (0 - latRange); i<latRange; i+= (latRange/2.0)){
+  for(var j = (0 - lngRange); j<lngRange; j+= (lngRange/2.0)){
+    destinations.push(new google.maps.LatLng(startLat+i+borderPadding, startLng+j+borderPadding));
+
+  }
+}
+
+var colors = ['#99FF66', '#FFFF00', '#FF0000'];
+var times = [15,30];
+
+function colorFor(time){
+  for(var i=0; i<times.length; i++){
+    if(time < times[i]){
+      return colors[i];
+    }  
+  }
+  return colors[colors.length-1];
+}
+
+/* destinations.push(new google.maps.LatLng(startLat + 0.1, startLng));
+destinations.push(new google.maps.LatLng(startLat , startLng + 0.1));
+destinations.push(new google.maps.LatLng(startLat - 0.1, startLng));
+destinations.push(new google.maps.LatLng(startLat, startLng - 0.1));
+*/
+
+function initialize() {
+  var opts = {
+    center: origin,
+    zoom: 10
+  };
+  map = new google.maps.Map(document.getElementById('map-canvas'), opts);
+  geocoder = new google.maps.Geocoder();
+
+  var marker = new google.maps.Marker({
+        map: map,
+        position: new google.maps.LatLng(startLat, startLng),
+        icon: originIcon
+    });
+}
+
+function calculateDistances() {
+
+  var service = new google.maps.DistanceMatrixService();
+  service.getDistanceMatrix(
+    {
+      origins: [origin],
+      destinations: destinations,
+      travelMode: google.maps.TravelMode.WALKING,
+      unitSystem: google.maps.UnitSystem.METRIC,
+      avoidHighways: false,
+      avoidTolls: false
+    }, callback);
+}
+
+function callback(response, status) {
+  if (status != google.maps.DistanceMatrixStatus.OK) {
+    alert('Error was: ' + status);
+  } else {
+
+    var outputDiv = document.getElementById('outputDiv');
+    outputDiv.innerHTML = '';
+    deleteOverlays();
+
+    var heatMapData = [];
+
+    for (var i = 0; i < response.rows.length; i++) {
+      var results = response.rows[i].elements;
+      for (var j = 0; j < results.length; j++) {
+        var color = colorFor(results[j].duration['value']/60);
+        var populationOptions = {
+          strokeColor: color,
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+          fillColor: color,
+          fillOpacity: 0.35,
+          map: map,
+          center: destinations[j],
+          radius: 250
+        };
+        // Add the circle for this city to the map.
+        cityCircle = new google.maps.Circle(populationOptions);
+      }   
+    }
+  }
+}
+
+function addMarker(location, isDestination) {
+  var icon;
+  if (isDestination) {
+    icon = destinationIcon;
+  } else {
+    icon = originIcon;
+  }
+  geocoder.geocode({'address': location}, function(results, status) {
+    if (status == google.maps.GeocoderStatus.OK) {
+      bounds.extend(results[0].geometry.location);
+      map.fitBounds(bounds);
+      var marker = new google.maps.Marker({
+        map: map,
+        position: results[0].geometry.location,
+        icon: icon
+      });
+      markersArray.push(marker);
+    } else {
+      alert('Geocode was not successful for the following reason: '
+        + status);
+    }
+  });
+}
+
+function deleteOverlays() {
+  for (var i = 0; i < markersArray.length; i++) {
+    markersArray[i].setMap(null);
+  }
+  markersArray = [];
+}
+
+google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+  </head>
+  <body>
+    <div id="content-pane">
+      <div id="inputs">
+        <pre>
+var origin1 = new google.maps.LatLng(55.930, -3.118);
+var origin2 = 'Greenwich, England';
+var destinationA = 'Stockholm, Sweden';
+var destinationB = new google.maps.LatLng(50.087, 14.421);
+        </pre>
+        <p><button type="button" onclick="calculateDistances();">Calculate
+          distances</button></p>
+      </div>
+      <div id="outputDiv"></div>
+    </div>
+    <div id="map-canvas"></div>
+  </body>
+</html>
